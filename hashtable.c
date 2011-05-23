@@ -4,10 +4,12 @@
  * @brief a simple hash table implementation
  * @author Ankur Shrivastava
  */
+#define DEBUG
 #include "hashtable.h"
 #include "debug.h"
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 
 // element operations
@@ -210,14 +212,10 @@ int hash_table_add(hash_table_t * table, void * key, size_t key_len, void * valu
 }
 
 /**
- * Function to remove an hash table element (for a given key) from a given hash table
- * @param table hash table from which element has to be removed
- * @param key pointer to the key which has to be removed
- * @param key_len size of the key in bytes
- * @returns 0 on sucess
- * @returns -1 when key is not found
+ * Implements the common logic for the hash_table_remove() and
+ * hash_table_steal() functions.
  */
-int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
+int hash_table_remove_internal(hash_table_t * table, void * key, size_t key_len, bool notify)
 {
     INFO("Deleting a key-value pair from the hash table");
     if ((table->key_num/ table->key_count) >= table->key_ratio)
@@ -253,8 +251,11 @@ int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
                 {
                     prev->next = temp->next;
                 }
-                hash_table_element_delete(table, temp);
-                INFO("Deleted a key-value pair from the hash table");
+                if (notify)
+                {
+                    hash_table_element_delete(table, temp);
+                    INFO("Deleted a key-value pair from the hash table");
+                }
                 table->key_count--;                
                 return 0;
             }
@@ -264,6 +265,25 @@ int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
     INFO("Key Not Found");
     return -1; // key not found
 }
+
+/**
+ * Function to remove a hash table element (for a given key) from a given hash table
+ * @param table hash table from which element has to be removed
+ * @param key pointer to the key which has to be removed
+ * @param key_len size of the key in bytes
+ * @returns 0 on sucess
+ * @returns -1 when key is not found
+ */
+int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
+{
+    return hash_table_remove_internal(table, key, key_len, true);
+}
+
+int hash_table_steal(hash_table_t *table, void *key, size_t key_len)
+{
+    return hash_table_remove_internal(table, key, key_len, false);
+}
+
 
 /**
  * Function to lookup a key in a particular table
@@ -485,4 +505,8 @@ int hash_table_resize(hash_table_t *table, size_t len)
     free(temp);
     return 0;
 }
+
+/* New functions */
+
+    
 
