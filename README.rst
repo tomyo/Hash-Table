@@ -1,7 +1,7 @@
 Simple Hash Table Implementation in C
 =====================================
 
-I found usefull adding this defines when I use this hash:
+Usefull defines when using this hash:
 
 ::
 
