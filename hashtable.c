@@ -4,7 +4,6 @@
  * @brief a simple hash table implementation
  * @author Ankur Shrivastava
  */
-#define DEBUG
 #include "hashtable.h"
 #include "debug.h"
 
@@ -12,7 +11,12 @@
 #include <stdbool.h>
 #include <string.h>
 
-// element operations
+#define INITIAL_SIZE 128
+#define KEY_RATIO 4
+
+
+
+/* element operations */
 /**
  * Function to create a now hash_table element
  * @returns hash_table_element_t object when success
@@ -38,13 +42,28 @@ void hash_table_element_delete(hash_table_t * table, hash_table_element_t * elem
         free(element->key);
     }
     else if (table->mode == MODE_VALUEREF)
-    {
+    {   
+        if (table->value_destroy_fun)
+        {   
+            (table->value_destroy_fun)(element->value);
+        }
         free(element->key);
+    }
+    else if (table->mode == MODE_ALLREF)
+    {
+        if (table->key_destroy_fun)
+        {   
+            (table->key_destroy_fun)(element->key);
+        }
+        if (table->value_destroy_fun)
+        {   
+            (table->value_destroy_fun)(element->value);
+        }
     }
     free(element);
 }
 
-// hash table operations
+/* hash table operations */
 /**
  * Fuction to create a new hash table
  * @param mode hash_table_mode which the hash table should follow
@@ -52,6 +71,13 @@ void hash_table_element_delete(hash_table_t * table, hash_table_element_t * elem
  * @returns NULL when no memory
  */
 hash_table_t * hash_table_new(hash_table_mode_t mode)
+{
+    return hash_table_new_full(mode, NULL, NULL);
+}
+
+hash_table_t * hash_table_new_full(hash_table_mode_t mode,
+                                   destroy_fun_t key_destroy_fun,
+                                   destroy_fun_t value_destroy_fun)
 {
     INFO("Creating a new hash table");
     hash_table_t *table = calloc(1, hash_table_s);
@@ -61,8 +87,10 @@ hash_table_t * hash_table_new(hash_table_mode_t mode)
         return NULL;
     }
     table->mode = mode;
-    table->key_num = 128;
-    table->key_ratio = 4;
+    table->key_destroy_fun = key_destroy_fun;
+    table->value_destroy_fun = value_destroy_fun;
+    table->key_num = INITIAL_SIZE;
+    table->key_ratio = KEY_RATIO;
     table->store_house = (hash_table_element_t **) calloc(table->key_num, sizeof(hash_table_element_t *));
     if (!table->store_house)
     {
@@ -211,60 +239,6 @@ int hash_table_add(hash_table_t * table, void * key, size_t key_len, void * valu
     return 0;
 }
 
-/**
- * Implements the common logic for the hash_table_remove() and
- * hash_table_steal() functions.
- */
-int hash_table_remove_internal(hash_table_t * table, void * key, size_t key_len, bool notify)
-{
-    INFO("Deleting a key-value pair from the hash table");
-    if ((table->key_num/ table->key_count) >= table->key_ratio)
-    {
-        LOG("Ratio(%d) reached the set limit %d\nContracting hash_table", (table->key_num / table->key_count), table->key_ratio);
-        hash_table_resize(table, table->key_num/2);
-        //exit(0);
-    }
-    size_t hash = HASH(key, key_len);
-    if (!table->store_house[hash])
-    {
-        LOG("Key Not Found -> No element at %d", (int)hash);
-        return -1; // key not found
-    }
-    hash_table_element_t *temp = table->store_house[hash];
-    hash_table_element_t *prev = temp;
-    while(temp)
-    {
-        while(temp && temp->key_len!=key_len)
-        {
-            prev = temp;
-            temp = temp->next;
-        }
-        if(temp)
-        {
-            if (!memcmp(temp->key, key, key_len))
-            {
-                if (prev == table->store_house[hash])
-                {
-                    table->store_house[hash] = temp->next;
-                }
-                else
-                {
-                    prev->next = temp->next;
-                }
-                if (notify)
-                {
-                    hash_table_element_delete(table, temp);
-                    INFO("Deleted a key-value pair from the hash table");
-                }
-                table->key_count--;                
-                return 0;
-            }
-            temp=temp->next;
-        }
-    }
-    INFO("Key Not Found");
-    return -1; // key not found
-}
 
 /**
  * Function to remove a hash table element (for a given key) from a given hash table
@@ -276,13 +250,53 @@ int hash_table_remove_internal(hash_table_t * table, void * key, size_t key_len,
  */
 int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
 {
-    return hash_table_remove_internal(table, key, key_len, true);
+    INFO("Deleting a key-value pair from the hash table");
+    if ((table->key_num/ table->key_count) >= table->key_ratio)
+    {
+        LOG("Ratio(%d) reached the set limit %d\nContracting hash_table", 
+                        (table->key_num / table->key_count), table->key_ratio);
+        hash_table_resize(table, table->key_num/2);
+        /* duplicando tama#o */
+    }
+    size_t hash = HASH(key, key_len);
+    if (!table->store_house[hash])
+    {
+        LOG("Key Not Found -> No element at %d", (int)hash);
+        return -1; /* key not found */
+    }
+    hash_table_element_t *curr = table->store_house[hash];
+    hash_table_element_t *prev = curr;
+    while(curr)
+    {
+        while(curr && curr->key_len!=key_len)
+        {
+            prev = curr;
+            curr = curr->next;
+        }
+        if(curr)
+        {
+            if (!memcmp(curr->key, key, key_len))
+            {
+                if (curr == table->store_house[hash])
+                {
+                    table->store_house[hash] = curr->next;
+                }
+                else
+                {
+                    prev->next = curr->next;
+                }
+                hash_table_element_delete(table, curr);
+                INFO("Deleted a key-value pair from the hash table");
+                table->key_count--;                
+                return 0;
+            }
+            curr=curr->next;
+        }
+    }
+    INFO("Key Not Found");
+    return -1; /* key not found */
 }
 
-int hash_table_steal(hash_table_t *table, void *key, size_t key_len)
-{
-    return hash_table_remove_internal(table, key, key_len, false);
-}
 
 
 /**
@@ -300,7 +314,7 @@ void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
     if (!table->store_house[hash])
     {
         LOG("Key not found at hash %d, no entries", (int)hash);
-        return NULL; // key not found
+        return NULL; /* key not found */
     }
     hash_table_element_t *temp = table->store_house[hash];
     while(temp)
@@ -475,14 +489,14 @@ int hash_table_resize(hash_table_t *table, size_t len)
     LOG("resizing hash table from %d to %d", table->key_num, len);
     hash_table_element_t ** elements;
     size_t count;
-    // FIXME traversing the elements twice, change it some time soon
+    /* FIXME traversing the elements twice, change it some time soon */
     count = hash_table_get_elements(table, &elements);
     if (!count) 
     {
         INFO("Got No Elements from the hash table");
         return -1;
     }
-    // keep the current store house in case we dont get more memory
+    /* keep the current store house in case we dont get more memory */
     hash_table_element_t ** temp = table->store_house;
     table->store_house = calloc(len, sizeof(hash_table_element_t *));
     if (!table->store_house)
@@ -492,7 +506,7 @@ int hash_table_resize(hash_table_t *table, size_t len)
         return -2;
     }
     table->key_num = len;
-    // fool the new hash table so if refers even previously copied values
+    /* fool the new hash table so if refers even previously copied values */
     int mode = table->mode;
     table->mode = MODE_ALLREF;
     while(count>0)
@@ -501,7 +515,7 @@ int hash_table_resize(hash_table_t *table, size_t len)
         hash_table_add(table, elem->key, elem->key_len, elem->value, elem->value_len);
     }
     table->mode = mode;
-    // free old store house
+    /* free old store house */
     free(temp);
     return 0;
 }

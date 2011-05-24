@@ -13,6 +13,8 @@
 #define HASH_LEN table->key_num
 #define HASH(x,y) hash_table_do_hash(x,y,HASH_LEN)
 
+typedef void (*destroy_fun_t) (void *);
+
 /* forward declaration */
 typedef struct hash_table_element hash_table_element_t;
 
@@ -72,6 +74,16 @@ typedef struct hash_table
      * mode of the hash table
      */
     hash_table_mode_t mode;
+    
+    /**
+     * key destroy funcion
+     */
+    destroy_fun_t key_destroy_fun;
+    
+    /**
+     * value destroy funcion
+     */
+    destroy_fun_t value_destroy_fun;
 
     /**
      * number of keys in the hash table
@@ -106,6 +118,7 @@ hash_table_element_t * hash_table_element_new(void);
  * @param table table from which element has to be deleted
  * @param element hash table element to be deleted
  */
+ 
 void hash_table_element_delete(hash_table_t *, hash_table_element_t *);
 
 /**
@@ -131,7 +144,9 @@ hash_table_t * hash_table_new(hash_table_mode_t);
  * Function to delete the hash table
  * @param table hash table to be deleted
  */
-#define HT_DESTROY(table) hash_table_delete(table)
+ 
+hash_table_t * hash_table_new_full(hash_table_mode_t, destroy_fun_t, destroy_fun_t);
+
 void hash_table_delete(hash_table_t *);
 
 /**
@@ -176,14 +191,6 @@ int hash_table_add(hash_table_t *, void *, size_t, void *, size_t);
  * @returns -1 when key is not found
  */
 int hash_table_remove(hash_table_t *, void *, size_t);
-
-
-/**
- * Removes a key and its associated value from hash table without
- * calling the key and value destroy functions.
- */
-#define HT_STEAL(table, key) hash_table_steal(table, key, sizeof(*key))
-int hash_table_steal(hash_table_t *, void *, size_t);
 
 
 /**
