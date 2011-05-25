@@ -13,6 +13,24 @@
 #define HASH_LEN table->key_num
 #define HASH(x,y) hash_table_do_hash(x,y,HASH_LEN)
 
+#define KEY_SIZE (...)
+#define VALUE_SIZE (...)
+/* IMPORTANT: This defines should be 'redefine' to your key and and value sizes
+ * in case you want to use the macros below.
+ */
+
+#define ht_new(mode) hash_table_new(mode)
+#define ht_new_full(mode, kdf, vdf) hash_table_new_full(mode, kdf, vdf)
+#define ht_lookup(table, key) hash_table_lookup(table, key, KEY_SIZE)
+#define ht_lookup_extended(table, key, stored_key, stored_value) \
+hash_table_lookup_extended(table, key, KEY_SIZE, stored_key, stored_value)
+#define ht_steal(table, key) hash_table_steal(table, key, KEY_SIZE)
+#define ht_remove(table, key) hash_table_remove(table, key, KEY_SIZE)
+#define ht_insert(table, key, value) \
+hash_table_add(table, key, KEY_SIZE, value, VALUE_SIZE)
+#define ht_destroy(table) hash_table_delete(table)
+
+
 typedef void (*destroy_fun_t) (void *);
 
 /* forward declaration */
@@ -33,7 +51,7 @@ struct hash_table_element
      */
     size_t value_len;
     /**
-     * pointer to the key 
+     * pointer to the key
      */
     void * key;
     /**
@@ -74,12 +92,12 @@ typedef struct hash_table
      * mode of the hash table
      */
     hash_table_mode_t mode;
-    
+
     /**
      * key destroy funcion
      */
     destroy_fun_t key_destroy_fun;
-    
+
     /**
      * value destroy funcion
      */
@@ -118,14 +136,14 @@ hash_table_element_t * hash_table_element_new(void);
  * @param table table from which element has to be deleted
  * @param element hash table element to be deleted
  */
- 
+
 void hash_table_element_delete(hash_table_t *, hash_table_element_t *);
 
 /**
  * Function that returns a hash value for a given key and key_len
  * @param key pointer to the key
  * @param key_len length of the key
- * @param max_key max value of the hash to be returned by the function 
+ * @param max_key max value of the hash to be returned by the function
  * @returns hash value belonging to [0, max_key)
  */
 uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key);
@@ -144,7 +162,7 @@ hash_table_t * hash_table_new(hash_table_mode_t);
  * Function to delete the hash table
  * @param table hash table to be deleted
  */
- 
+
 hash_table_t * hash_table_new_full(hash_table_mode_t, destroy_fun_t, destroy_fun_t);
 
 void hash_table_delete(hash_table_t *);
@@ -172,6 +190,7 @@ void hash_table_delete(hash_table_t *);
  */
 int hash_table_add(hash_table_t *, void *, size_t, void *, size_t);
 
+int hash_table_len(hash_table_t *);
 /**
  * macro to remove an hash table element (for a given key) from a given hash table
  * @note use this macro when size of key and/or value can be given by sizeof
@@ -191,6 +210,12 @@ int hash_table_add(hash_table_t *, void *, size_t, void *, size_t);
  * @returns -1 when key is not found
  */
 int hash_table_remove(hash_table_t *, void *, size_t);
+
+/**
+ * Like hash_table_remove, but don't call destroy functions gor key a value
+ * (if given).
+ */
+int hash_table_steal(hash_table_t *, void *, size_t);
 
 
 /**
@@ -213,6 +238,20 @@ int hash_table_remove(hash_table_t *, void *, size_t);
  */
 void * hash_table_lookup(hash_table_t *, void *, size_t);
 
+#define HT_LOOKUP_EXTENDED(table, key, stored_key, stored_value) \
+hash_table_lookup_extended(table, key, sizeof(*key), stores_key, stored_value)
+
+/**
+ * Function to lookup a key in a particular table
+ * @param table table to look key in
+ * @param key pointer to key to be looked for
+ * @param key_len size of the key to be searched
+ * @param stored_key pointer to bind the key found
+ * @param stored_value pointer to bind the value found
+ */
+void hash_table_lookup_extended(hash_table_t * table, void * key,
+        size_t key_len, void ** stored_key, void ** stored_value);
+
 /**
  * macro to look if the exists in the hash table
  * @note use this macro when size of key and/or value can be given by sizeof
@@ -230,23 +269,6 @@ void * hash_table_lookup(hash_table_t *, void *, size_t);
  * @returns 1 when key is found
  */
 int hash_table_has_key(hash_table_t *, void *, size_t);
-
-/**
- * Function to return all the keys in a given hash table
- * @param table hash table from which key are to be reterived
- * @param keys a void** pointer where keys are filled in (memory allocated internally and must be freed)
- * @return total number of keys filled in keys 
- */
-size_t hash_table_get_keys(hash_table_t *, void **);
-
-/**
- * Function to get all elements (key - value pairs) from the given hash table
- * @param table hash table from which elements have to be retrieved
- * @param elements a pointer to an array of hash_table_element_t pointer (malloced by function)
- * @returns 1 when no memory 
- * @returns count of elements 
- */
-size_t hash_table_get_elements(hash_table_t *, hash_table_element_t *** );
 
 /**
  * Function to resize the hash table store house

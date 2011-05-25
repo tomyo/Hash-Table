@@ -6,7 +6,7 @@
  */
 #include "hashtable.h"
 #include "debug.h"
-
+#include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -14,9 +14,36 @@
 #define INITIAL_SIZE 128
 #define KEY_RATIO 4
 
+static void hash_table_element_delete_internal(hash_table_t *,
+                                               hash_table_element_t *, bool);
+static int hash_table_remove_internal(hash_table_t *, void *, size_t, bool);
 
+static int hash_table_count_keys(hash_table_t * table)
+{ /* For debbuging porpuse only, use hash_table_len instead. */
+    int i = 0, count = 0;
+    
+    for(i=0;i<table->key_num;i++)
+    {
+        if (table->store_house[i])
+        {
+            count++;
+            hash_table_element_t *temp = table->store_house[i];
+            while(temp->next)
+            {
+                count++;
+                temp = temp->next;
+            }
+        }
+    }
+    return count;
+}
 
-/* element operations */
+int hash_table_len(hash_table_t *table)
+{
+    return table->key_count;
+}
+
+/**************************** Element Operations ******************************/
 /**
  * Function to create a now hash_table element
  * @returns hash_table_element_t object when success
@@ -28,12 +55,13 @@ hash_table_element_t * hash_table_element_new()
     return calloc(1, hash_table_element_s);
 }
 
+
 /**
- * Function to delete an hash table element
- * @param table table from which element has to be deleted
- * @param element hash table element to be deleted
+ * Implements the common logic for the hash_table_element_delete().
  */
-void hash_table_element_delete(hash_table_t * table, hash_table_element_t * element)
+static void hash_table_element_delete_internal(hash_table_t * table,
+                                               hash_table_element_t * element,
+                                               bool notify)
 {
     INFO("Deleting an hash table element");
     if (table->mode == MODE_COPY)
@@ -42,28 +70,47 @@ void hash_table_element_delete(hash_table_t * table, hash_table_element_t * elem
         free(element->key);
     }
     else if (table->mode == MODE_VALUEREF)
-    {   
-        if (table->value_destroy_fun)
-        {   
-            (table->value_destroy_fun)(element->value);
-        }
+    {
         free(element->key);
+        if (notify)
+        {
+            if (table->value_destroy_fun)
+            {
+                (table->value_destroy_fun)(element->value);
+            }
+            free(element->key);
+        }
     }
     else if (table->mode == MODE_ALLREF)
     {
-        if (table->key_destroy_fun)
-        {   
-            (table->key_destroy_fun)(element->key);
-        }
-        if (table->value_destroy_fun)
-        {   
-            (table->value_destroy_fun)(element->value);
+        if (notify)
+        { /* using destroy functions given (if any) */
+            if (table->key_destroy_fun)
+            {
+                (table->key_destroy_fun)(element->key);
+            }
+            if (table->value_destroy_fun)
+            {
+                (table->value_destroy_fun)(element->value);
+            }
         }
     }
     free(element);
 }
 
-/* hash table operations */
+/**
+ * Function to delete an hash table element
+ * @param table table from which element has to be deleted
+ * @param element hash table element to be deleted
+ */
+void hash_table_element_delete(hash_table_t *table, hash_table_element_t *element)
+{
+    return hash_table_element_delete_internal(table, element, true);
+}
+
+
+/************************** Hash Table Operations *****************************/
+
 /**
  * Fuction to create a new hash table
  * @param mode hash_table_mode which the hash table should follow
@@ -75,13 +122,21 @@ hash_table_t * hash_table_new(hash_table_mode_t mode)
     return hash_table_new_full(mode, NULL, NULL);
 }
 
+/**
+ * Fuction to create a new hash table.
+ * @param mode hash_table_mode which the hash table should follow.
+ * @param key_destroy_fun to use when removing an element from hash.
+ * @param value_destroy_fun to use when removing an element from hash.
+ * @returns hash_table_t object which references the hash table.
+ * @returns NULL when no memory.
+ */
 hash_table_t * hash_table_new_full(hash_table_mode_t mode,
                                    destroy_fun_t key_destroy_fun,
                                    destroy_fun_t value_destroy_fun)
 {
     INFO("Creating a new hash table");
     hash_table_t *table = calloc(1, hash_table_s);
-    if (!table) 
+    if (!table)
     {
         INFO("No Memory while allocating hash_table");
         return NULL;
@@ -116,11 +171,14 @@ void hash_table_delete(hash_table_t * table)
             hash_table_element_t * temp = table->store_house[i];
             table->store_house[i] = table->store_house[i]->next;
             hash_table_element_delete(table, temp);
+            table->key_count--;
         }
+        if (table->key_count == 0) break;
     }
     free(table->store_house);
     free(table);
 }
+
 
 /**
  * Function to add a key - value pair to the hash table, use HT_ADD macro
@@ -132,13 +190,15 @@ void hash_table_delete(hash_table_t * table)
  * @returns 0 on sucess
  * @returns -1 when no memory
  */
-int hash_table_add(hash_table_t * table, void * key, size_t key_len, void * value, size_t value_len)
+int hash_table_add(hash_table_t * table, void * key, 
+                   size_t key_len, void * value, size_t value_len)
 {
+    assert(hash_table_count_keys(table) == table->key_count);
+    
     if ((table->key_count / table->key_num) >= table->key_ratio)
     {
         LOG("Ratio(%d) reached the set limit %d\nExpanding hash_table", (table->key_count / table->key_num), table->key_ratio);
         hash_table_resize(table, table->key_num*2);
-        //exit(0);
     }
     size_t hash = HASH(key, key_len);
     hash_table_element_t * element = hash_table_element_new();
@@ -239,24 +299,21 @@ int hash_table_add(hash_table_t * table, void * key, size_t key_len, void * valu
     return 0;
 }
 
-
 /**
- * Function to remove a hash table element (for a given key) from a given hash table
- * @param table hash table from which element has to be removed
- * @param key pointer to the key which has to be removed
- * @param key_len size of the key in bytes
- * @returns 0 on sucess
- * @returns -1 when key is not found
+ * Implements the common logic for the hash_table_remove() and
+ * hash_table_steal() functions.
  */
-int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
+static int hash_table_remove_internal(hash_table_t * table,
+                               void * key, size_t key_len, bool notify)
 {
+    assert(hash_table_count_keys(table) == table->key_count);
+    
     INFO("Deleting a key-value pair from the hash table");
-    if ((table->key_num/ table->key_count) >= table->key_ratio)
+    if (((table->key_num/ table->key_count) >= table->key_ratio) && notify)
     {
-        LOG("Ratio(%d) reached the set limit %d\nContracting hash_table", 
+        LOG("Ratio(%d) reached the set limit %d\nContracting hash_table",
                         (table->key_num / table->key_count), table->key_ratio);
         hash_table_resize(table, table->key_num/2);
-        /* duplicando tama#o */
     }
     size_t hash = HASH(key, key_len);
     if (!table->store_house[hash])
@@ -269,14 +326,14 @@ int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
     while(curr)
     {
         while(curr && curr->key_len!=key_len)
-        {
+        { /* skipping keys with same hash but diferent size */
             prev = curr;
             curr = curr->next;
         }
         if(curr)
         {
             if (!memcmp(curr->key, key, key_len))
-            {
+            {/* Found it */
                 if (curr == table->store_house[hash])
                 {
                     table->store_house[hash] = curr->next;
@@ -285,11 +342,12 @@ int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
                 {
                     prev->next = curr->next;
                 }
-                hash_table_element_delete(table, curr);
+                hash_table_element_delete_internal(table, curr, notify);
                 INFO("Deleted a key-value pair from the hash table");
-                table->key_count--;                
+                table->key_count--;
                 return 0;
             }
+            prev=curr;
             curr=curr->next;
         }
     }
@@ -297,6 +355,28 @@ int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
     return -1; /* key not found */
 }
 
+
+/**
+ * Function to remove a hash table element (for a given key) from a given hash table
+ * @param table hash table from which element has to be removed
+ * @param key pointer to the key which has to be removed
+ * @param key_len size of the key in bytes
+ * @returns 0 on sucess
+ * @returns -1 when key is not found
+ */
+int hash_table_remove(hash_table_t * table, void * key, size_t key_len)
+{
+    return  hash_table_remove_internal(table, key, key_len, true);
+}
+
+/**
+ * Like hash_table_remove, but don't call destroy functions gor key a value
+ * (if given).
+ */
+int hash_table_steal(hash_table_t * table, void * key, size_t key_len)
+{
+    return  hash_table_remove_internal(table, key, key_len, false);
+}
 
 
 /**
@@ -337,7 +417,51 @@ void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
         }
     }
     LOG("Key not found at hash %d", (int)hash);
-    return NULL; // key not found   
+    return NULL; // key not found
+}
+
+
+/**
+ * Function to lookup a key in a particular table
+ * @param table table to look key in
+ * @param key pointer to key to be looked for
+ * @param key_len size of the key to be searched
+ * @param stored_key pointer to bind the key found
+ * @param stored_value pointer to bind the value found
+ */
+void hash_table_lookup_extended(hash_table_t * table, void * key, size_t key_len, void ** stored_key, void ** stored_value)
+{
+    size_t hash = HASH(key, key_len);
+    LOG("Looking up a key-value pair for hash -> %d", (int)hash);
+    if (!table->store_house[hash])
+    {
+        LOG("Key not found at hash %d, no entries", (int)hash);
+        return; /* key not found */
+    }
+    hash_table_element_t *temp = table->store_house[hash];
+    while(temp)
+    {
+        while(temp && temp->key_len!=key_len)
+        {
+            temp = temp->next;
+        }
+        if(temp)
+        {
+            if (!memcmp(temp->key, key, key_len))
+            {
+                LOG("Found Key at hash -> %d", (int)hash);
+                (*stored_key) = temp->key;
+                (*stored_value) = temp->value;
+                return;
+            }
+            else
+            {
+                temp = temp->next;
+            }
+        }
+    }
+    LOG("Key not found at hash %d", (int)hash);
+    return; // key not found
 }
 
 /**
@@ -374,92 +498,15 @@ int hash_table_has_key(hash_table_t * table, void * key, size_t key_len)
         }
     }
     LOG("Key not found with hash -> %d", (int)hash);
-    return 0; // key not found   
+    return 0; // key not found
 }
 
-/**
- * Function to return all the keys in a given hash table
- * @param table hash table from which key are to be reterived
- * @param keys a void** pointer where keys are filled in (memory allocated internally and must be freed)
- * @return total number of keys filled in keys 
- */
-size_t hash_table_get_keys(hash_table_t * table, void ** keys)
-{
-    size_t i = 0;
-    size_t count = 0;
-    keys = calloc(table->key_count, sizeof(void *));
-    for(i=0;i<HASH_LEN;i++)
-    {
-        if (table->store_house[i])
-        {
-            keys[count++] = table->store_house[i];
-            hash_table_element_t *temp = table->store_house[i];
-            #ifdef DEBUG
-            size_t num = 1;
-            #endif
-            while(temp->next)
-            {
-                keys[count++] = temp->next;
-                temp = temp->next;
-                #ifdef DEBUG
-                num++;
-                #endif
-            }
-            #ifdef DEBUG
-            LOG("found %d key(s) at hash -> %d", (int)num, (int)i);
-            #endif 
-        }
-    }
-    return count;
-}
-
-/**
- * Function to get all elements (key - value pairs) from the given hash table
- * @param table hash table from which elements have to be retrieved
- * @param elements a pointer to an array of hash_table_element_t pointer (malloced by function)
- * @returns 1 when no memory 
- * @returns count of elements 
- */
-size_t hash_table_get_elements(hash_table_t * table, hash_table_element_t *** elements)
-{
-    size_t i = 0;
-    size_t count = 0;
-    (*elements) = (hash_table_element_t **) calloc(table->key_count, sizeof(hash_table_element_t *));
-    if (!*elements) 
-    {
-        INFO("No Memory to allocate elements array");
-        return 1;
-    }
-    for(i=0;i<HASH_LEN;i++)
-    {
-        if (table->store_house[i])
-        {
-            (*elements)[count++] = table->store_house[i];
-            hash_table_element_t *temp = table->store_house[i];
-            #ifdef DEBUG
-            size_t num = 1;
-            #endif
-            while(temp->next)
-            {
-                (*elements)[count++] = temp->next;
-                temp = temp->next;
-                #ifdef DEBUG
-                num++;
-                #endif
-            }
-            #ifdef DEBUG
-            LOG("found %d key(s) at hash -> %d", (int)num, (int)i);
-            #endif 
-        }
-    }
-    return count;
-}
 
 /**
  * Function that returns a hash value for a given key and key_len
  * @param key pointer to the key
  * @param key_len length of the key
- * @param max_key max value of the hash to be returned by the function 
+ * @param max_key max value of the hash to be returned by the function
  * @returns hash value belonging to [0, max_key)
  */
 uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key)
@@ -487,40 +534,52 @@ uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key)
 int hash_table_resize(hash_table_t *table, size_t len)
 {
     LOG("resizing hash table from %d to %d", table->key_num, len);
-    hash_table_element_t ** elements;
-    size_t count;
-    /* FIXME traversing the elements twice, change it some time soon */
-    count = hash_table_get_elements(table, &elements);
-    if (!count) 
-    {
-        INFO("Got No Elements from the hash table");
-        return -1;
-    }
-    /* keep the current store house in case we dont get more memory */
-    hash_table_element_t ** temp = table->store_house;
+    
+    hash_table_element_t ** old_store = table->store_house;
+
     table->store_house = calloc(len, sizeof(hash_table_element_t *));
     if (!table->store_house)
     {
-        table->store_house = temp;
+        table->store_house = old_store;
         INFO("No Memory for new store house");
         return -2;
     }
-    table->key_num = len;
-    /* fool the new hash table so if refers even previously copied values */
-    int mode = table->mode;
-    table->mode = MODE_ALLREF;
-    while(count>0)
+    int mode = table->mode, old_store_len = table->key_num, count = 0;
+    size_t i = 0;
+    table->mode = MODE_ALLREF; /* Fool new hash table to use previous values */
+    table->key_num = len; /* New hash len */
+    hash_table_element_t * etc = NULL, *next = NULL; 
+                        /* etc = Element To Copy */
+    table->key_count = 0;
+    for (i=0; i<old_store_len; i++)
     {
-        hash_table_element_t *elem = elements[--count];
-        hash_table_add(table, elem->key, elem->key_len, elem->value, elem->value_len);
+        etc = old_store[i];
+        if (etc)
+        {
+            hash_table_add(table, etc->key, etc->key_len,
+                           etc->value, etc->value_len);
+            count ++;
+            next = etc->next;
+            free(etc);
+            while(next)
+            {   
+                etc = next;
+                hash_table_add(table, etc->key, etc->key_len,
+                               etc->value, etc->value_len);
+                count++;
+                next = etc->next;
+                free(etc);
+            }
+        }
     }
+    
     table->mode = mode;
-    /* free old store house */
-    free(temp);
+ 
+    free(old_store);
     return 0;
 }
 
 /* New functions */
 
-    
+
 
