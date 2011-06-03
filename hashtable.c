@@ -18,20 +18,21 @@ static void hash_table_element_delete_internal(hash_table_t *,
                                                hash_table_element_t *, bool);
 static int hash_table_remove_internal(hash_table_t *, void *, size_t, bool);
 
-static int hash_table_count_keys(hash_table_t * table)
+static unsigned int hash_table_count_keys(hash_table_t * table)
 { /* For debbuging porpuse only, use hash_table_len instead. */
     int i = 0, count = 0;
+    hash_table_element_t *iter = NULL;
     
     for(i=0;i<table->key_num;i++)
     {
         if (table->store_house[i])
         {
             count++;
-            hash_table_element_t *temp = table->store_house[i];
-            while(temp->next)
+            iter = table->store_house[i];
+            while(iter->next)
             {
                 count++;
-                temp = temp->next;
+                iter = iter->next;
             }
         }
     }
@@ -105,7 +106,7 @@ static void hash_table_element_delete_internal(hash_table_t * table,
  */
 void hash_table_element_delete(hash_table_t *table, hash_table_element_t *element)
 {
-    return hash_table_element_delete_internal(table, element, true);
+    hash_table_element_delete_internal(table, element, true);
 }
 
 
@@ -134,8 +135,9 @@ hash_table_t * hash_table_new_full(hash_table_mode_t mode,
                                    destroy_fun_t key_destroy_fun,
                                    destroy_fun_t value_destroy_fun)
 {
-    INFO("Creating a new hash table");
-    hash_table_t *table = calloc(1, hash_table_s);
+    hash_table_t *table = NULL;
+    
+    table = calloc(1, hash_table_s);
     if (!table)
     {
         INFO("No Memory while allocating hash_table");
@@ -146,7 +148,8 @@ hash_table_t * hash_table_new_full(hash_table_mode_t mode,
     table->value_destroy_fun = value_destroy_fun;
     table->key_num = INITIAL_SIZE;
     table->key_ratio = KEY_RATIO;
-    table->store_house = (hash_table_element_t **) calloc(table->key_num, sizeof(hash_table_element_t *));
+    table->store_house = (hash_table_element_t **) calloc(table->key_num, \
+                          sizeof(hash_table_element_t *));
     if (!table->store_house)
     {
         INFO("No Memory while allocating hash_table store house");
@@ -162,8 +165,8 @@ hash_table_t * hash_table_new_full(hash_table_mode_t mode,
  */
 void hash_table_delete(hash_table_t * table)
 {
-    INFO("Deleating a hash table");
     size_t i=0;
+    INFO("Deleating a hash table");
     for (;i<HASH_LEN;i++)
     {
         while (table->store_house[i])
@@ -193,6 +196,8 @@ void hash_table_delete(hash_table_t * table)
 int hash_table_add(hash_table_t * table, void * key, 
                    size_t key_len, void * value, size_t value_len)
 {
+    size_t hash = 0;
+    hash_table_element_t *element = NULL, *iter = NULL, *to_delete = NULL;
     assert(hash_table_count_keys(table) == table->key_count);
     
     if ((table->key_count / table->key_num) >= table->key_ratio)
@@ -200,12 +205,12 @@ int hash_table_add(hash_table_t * table, void * key,
         LOG("Ratio(%d) reached the set limit %d\nExpanding hash_table", (table->key_count / table->key_num), table->key_ratio);
         hash_table_resize(table, table->key_num*2);
     }
-    size_t hash = HASH(key, key_len);
-    hash_table_element_t * element = hash_table_element_new();
+    hash = HASH(key, key_len);
+    element = hash_table_element_new();
     if (!element)
     {
         INFO("Cannot allocate memory for element");
-        return -1; // No Memory
+        return -1; /* No Memory */
     }
     if (table->mode == MODE_COPY)
     {
@@ -230,7 +235,7 @@ int hash_table_add(hash_table_t * table, void * key,
                 INFO("Cannot allocate memory for key");
             }
             free(element);
-            return -1; //No Memory
+            return -1; /* No Memory */
         }
     }
     else if (table->mode == MODE_VALUEREF)
@@ -245,7 +250,7 @@ int hash_table_add(hash_table_t * table, void * key,
         {
             INFO("Cannot allocate memory for key");
             free(element);
-            return -1; //No Memory
+            return -1; /* No Memory */
         }
         element->value = value;
     }
@@ -258,7 +263,7 @@ int hash_table_add(hash_table_t * table, void * key,
     element->key_len = key_len;
     element->value_len = value_len;
     element->next = NULL;
-    // find the key position for chaining
+    /* find the key position for chaining */
     if (!table->store_house[hash])
     {
         LOG("No Conflicts adding the first element at %d", (int)hash);
@@ -268,32 +273,32 @@ int hash_table_add(hash_table_t * table, void * key,
     else
     {
         LOG("Conflicts adding element at %d", (int)hash);
-        hash_table_element_t * temp = table->store_house[hash];
-        while(temp->next)
+        iter = table->store_house[hash];
+        while(iter->next)
         {
-            while(temp->next && temp->next->key_len!=key_len)
+            while(iter->next && iter->next->key_len!=key_len)
             {
-                temp = temp->next;
+                iter = iter->next;
             }
-            if(temp->next)
+            if(iter->next)
             {
-                if (!memcmp(temp->next->key, key, key_len))
+                if (!memcmp(iter->next->key, key, key_len))
                 {
                     LOG("Found Key at hash -> %d", (int)hash);
-                    hash_table_element_t *to_delete = temp->next;
-                    temp->next = element;
+                    to_delete = iter->next;
+                    iter->next = element;
                     element->next = to_delete->next;
                     hash_table_element_delete(table, to_delete);
-                    // since we are replacing values no need to change key_count
+                    /* we are replacing values, no need to change key_count */
                     return 0;
                 }
                 else
                 {
-                    temp = temp->next;
+                    iter = iter->next;
                 }
             }
         }
-        temp->next = element;
+        iter->next = element;
         table->key_count++;
     }
     return 0;
@@ -306,6 +311,8 @@ int hash_table_add(hash_table_t * table, void * key,
 static int hash_table_remove_internal(hash_table_t * table,
                                void * key, size_t key_len, bool notify)
 {
+    size_t hash = 0;
+    hash_table_element_t *curr = NULL, *prev = NULL;
     assert(hash_table_count_keys(table) == table->key_count);
     
     INFO("Deleting a key-value pair from the hash table");
@@ -315,14 +322,14 @@ static int hash_table_remove_internal(hash_table_t * table,
                         (table->key_num / table->key_count), table->key_ratio);
         hash_table_resize(table, table->key_num/2);
     }
-    size_t hash = HASH(key, key_len);
+    hash = HASH(key, key_len);
     if (!table->store_house[hash])
     {
         LOG("Key Not Found -> No element at %d", (int)hash);
         return -1; /* key not found */
     }
-    hash_table_element_t *curr = table->store_house[hash];
-    hash_table_element_t *prev = curr;
+    curr = table->store_house[hash];
+    prev = curr;
     while(curr)
     {
         while(curr && curr->key_len!=key_len)
@@ -390,13 +397,14 @@ int hash_table_steal(hash_table_t * table, void * key, size_t key_len)
 void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
 {
     size_t hash = HASH(key, key_len);
+    hash_table_element_t *temp = NULL;
     LOG("Looking up a key-value pair for hash -> %d", (int)hash);
     if (!table->store_house[hash])
     {
         LOG("Key not found at hash %d, no entries", (int)hash);
         return NULL; /* key not found */
     }
-    hash_table_element_t *temp = table->store_house[hash];
+    temp = table->store_house[hash];
     while(temp)
     {
         while(temp && temp->key_len!=key_len)
@@ -417,7 +425,7 @@ void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
         }
     }
     LOG("Key not found at hash %d", (int)hash);
-    return NULL; // key not found
+    return NULL; /* key not found */
 }
 
 
@@ -432,36 +440,37 @@ void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
 void hash_table_lookup_extended(hash_table_t * table, void * key, size_t key_len, void ** stored_key, void ** stored_value)
 {
     size_t hash = HASH(key, key_len);
+    hash_table_element_t *iter = NULL;
     LOG("Looking up a key-value pair for hash -> %d", (int)hash);
     if (!table->store_house[hash])
     {
         LOG("Key not found at hash %d, no entries", (int)hash);
         return; /* key not found */
     }
-    hash_table_element_t *temp = table->store_house[hash];
-    while(temp)
+    iter = table->store_house[hash];
+    while(iter)
     {
-        while(temp && temp->key_len!=key_len)
+        while(iter && iter->key_len!=key_len)
         {
-            temp = temp->next;
+            iter = iter->next;
         }
-        if(temp)
+        if(iter)
         {
-            if (!memcmp(temp->key, key, key_len))
+            if (!memcmp(iter->key, key, key_len))
             {
                 LOG("Found Key at hash -> %d", (int)hash);
-                (*stored_key) = temp->key;
-                (*stored_value) = temp->value;
+                (*stored_key) = iter->key;
+                (*stored_value) = iter->value;
                 return;
             }
             else
             {
-                temp = temp->next;
+                iter = iter->next;
             }
         }
     }
     LOG("Key not found at hash %d", (int)hash);
-    return; // key not found
+    return; /* key not found */
 }
 
 /**
@@ -474,31 +483,32 @@ void hash_table_lookup_extended(hash_table_t * table, void * key, size_t key_len
 int hash_table_has_key(hash_table_t * table, void * key, size_t key_len)
 {
     size_t hash = HASH(key, key_len);
+    hash_table_element_t *iter = NULL;
     LOG("Searching for key with hash -> %d", (int)hash);
     if (!table->store_house[hash])
     {
         LOG("Key not found with hash -> %d, no entries", (int)hash);
-        return 0; // key not found
+        return 0; /* key not found */
     }
-    hash_table_element_t *temp = table->store_house[hash];
-    while(temp)
+    iter = table->store_house[hash];
+    while(iter)
     {
-        while(temp && temp->key_len!=key_len)
+        while(iter && iter->key_len!=key_len)
         {
-            temp = temp->next;
+            iter = iter->next;
         }
-        if(temp)
+        if(iter)
         {
-            if (!memcmp(temp->key, key, key_len))
+            if (!memcmp(iter->key, key, key_len))
             {
                 LOG("Key Found with hash -> %d", (int)hash);
-                return 1; // key found
+                return 1; /* key found */
             }
-            temp=temp->next;
+            iter=iter->next;
         }
     }
     LOG("Key not found with hash -> %d", (int)hash);
-    return 0; // key not found
+    return 0; /* key not found */
 }
 
 
@@ -512,7 +522,7 @@ int hash_table_has_key(hash_table_t * table, void * key, size_t key_len)
 uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key)
 {
     uint16_t *ptr = (uint16_t *) key;
-    uint16_t hash = 0xbabe; // WHY NOT
+    uint16_t hash = 0xbabe; /* WHY NOT */
     size_t i = 0;
     for(;i<(key_len/2);i++)
     {
@@ -533,9 +543,13 @@ uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key)
  */
 int hash_table_resize(hash_table_t *table, size_t len)
 {
-    LOG("resizing hash table from %d to %d", table->key_num, len);
-    
+    unsigned int i = 0, old_store_len = 0, count = 0;
+    hash_table_mode_t mode;
     hash_table_element_t ** old_store = table->store_house;
+    hash_table_element_t * etc = NULL, *next = NULL; 
+                        /* etc = Element To Copy */
+    
+    LOG("resizing hash table from %d to %d", table->key_num, len);
 
     table->store_house = calloc(len, sizeof(hash_table_element_t *));
     if (!table->store_house)
@@ -544,12 +558,12 @@ int hash_table_resize(hash_table_t *table, size_t len)
         INFO("No Memory for new store house");
         return -2;
     }
-    int mode = table->mode, old_store_len = table->key_num, count = 0;
-    size_t i = 0;
+    mode = table->mode;
+    old_store_len = table->key_num;
+    count = 0;
     table->mode = MODE_ALLREF; /* Fool new hash table to use previous values */
     table->key_num = len; /* New hash len */
-    hash_table_element_t * etc = NULL, *next = NULL; 
-                        /* etc = Element To Copy */
+    
     table->key_count = 0;
     for (i=0; i<old_store_len; i++)
     {

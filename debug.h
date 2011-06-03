@@ -13,6 +13,6 @@
 #define LOG(...)
 #define INFO(...)
 
-#endif // debug
+#endif /* debug */
 
-#endif // debug.h
+#endif /* debug.h */
