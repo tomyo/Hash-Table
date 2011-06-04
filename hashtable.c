@@ -394,7 +394,7 @@ int hash_table_steal(hash_table_t * table, void * key, size_t key_len)
  * @returns NULL when key is not found in the hash table
  * @returns void* pointer to the value in the table
  */
-void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
+void * hash_table_lookup(hash_table_t * table, const void * key, size_t key_len)
 {
     size_t hash = HASH(key, key_len);
     hash_table_element_t *temp = NULL;
@@ -437,7 +437,7 @@ void * hash_table_lookup(hash_table_t * table, void * key, size_t key_len)
  * @param stored_key pointer to bind the key found
  * @param stored_value pointer to bind the value found
  */
-void hash_table_lookup_extended(hash_table_t * table, void * key, size_t key_len, void ** stored_key, void ** stored_value)
+void hash_table_lookup_extended(hash_table_t * table, const void * key, size_t key_len, void ** stored_key, void ** stored_value)
 {
     size_t hash = HASH(key, key_len);
     hash_table_element_t *iter = NULL;
@@ -519,7 +519,7 @@ int hash_table_has_key(hash_table_t * table, void * key, size_t key_len)
  * @param max_key max value of the hash to be returned by the function
  * @returns hash value belonging to [0, max_key)
  */
-uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key)
+uint16_t hash_table_do_hash(const void * key, size_t key_len, uint16_t max_key)
 {
     uint16_t *ptr = (uint16_t *) key;
     uint16_t hash = 0xbabe; /* WHY NOT */

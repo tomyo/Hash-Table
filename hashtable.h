@@ -141,7 +141,7 @@ void hash_table_element_delete(hash_table_t *, hash_table_element_t *);
  * @param max_key max value of the hash to be returned by the function
  * @returns hash value belonging to [0, max_key)
  */
-uint16_t hash_table_do_hash(void * key, size_t key_len, uint16_t max_key);
+uint16_t hash_table_do_hash(const void * key, size_t key_len, uint16_t max_key);
 
 /* hash table operations */
 
@@ -231,7 +231,7 @@ int hash_table_steal(hash_table_t *, void *, size_t);
  * @returns NULL when key is not found in the hash table
  * @returns void* pointer to the value in the table
  */
-void * hash_table_lookup(hash_table_t *, void *, size_t);
+void * hash_table_lookup(hash_table_t *, const void *, size_t);
 
 #define HT_LOOKUP_EXTENDED(table, key, stored_key, stored_value) \
 hash_table_lookup_extended(table, key, sizeof(*key), stores_key, stored_value)
@@ -244,7 +244,7 @@ hash_table_lookup_extended(table, key, sizeof(*key), stores_key, stored_value)
  * @param stored_key pointer to bind the key found
  * @param stored_value pointer to bind the value found
  */
-void hash_table_lookup_extended(hash_table_t * table, void * key,
+void hash_table_lookup_extended(hash_table_t * table, const void * key,
         size_t key_len, void ** stored_key, void ** stored_value);
 
 /**
