@@ -12,7 +12,7 @@ hash_table_t *net = NULL; /* tmp hash */
 /* Precondiciones */
 START_TEST(test_hash_table_destroy_null)
 {
-    hash_table_delete(NULL);
+    ht_destroy(NULL);
 }
 END_TEST
 
@@ -27,7 +27,7 @@ END_TEST
 START_TEST(test_hash_table_new_destroy)
 {
     hash_table_t *table = hash_table_new(MODE_ALLREF);
-    hash_table_delete(table);
+    ht_destroy(table);
 }
 END_TEST
 
@@ -52,7 +52,7 @@ START_TEST(test_hash_table_keys_iter_basic)
                     (7 >= *((int *)current)));
     }
 
-    hash_table_delete(table);
+    ht_destroy(table);
 }
 END_TEST
 
@@ -81,7 +81,7 @@ START_TEST(test_hash_table_keys_iter_full)
         fail_unless(k_chk[i] == 1);
     }
 
-    hash_table_delete(table);
+    ht_destroy(table);
 }
 END_TEST
 

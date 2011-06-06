@@ -24,7 +24,8 @@ hash_table_lookup_extended(table, key, sizeof(*key), store_key, store_value)
 #define ht_remove(table, key) hash_table_remove(table, key, sizeof(*key))
 #define ht_insert(table, key, value) \
 hash_table_add(table, key, sizeof(*key), value, sizeof(*value))
-#define ht_destroy(table) hash_table_delete(table)
+#define ht_destroy(table) hash_table_destroy(table)
+#define ht_free(table) hash_table_free(table);
 #define ht_iter_keys_reset(self) hash_table_iter_keys_reset(self)
 #define ht_iter_keys_next(self) hash_table_iter_keys_next(self)
 #define ht_iter_keys_is_done(self) hash_table_iter_keys_is_done(self)
@@ -167,14 +168,25 @@ uint16_t hash_table_do_hash(const void * key, size_t key_len, uint16_t max_key);
  */
 hash_table_t * hash_table_new(hash_table_mode_t);
 
-/**
- * Function to delete the hash table
- * @param table hash table to be deleted
- */
-
 hash_table_t * hash_table_new_full(hash_table_mode_t, destroy_fun_t, destroy_fun_t);
 
-void hash_table_delete(hash_table_t *);
+
+/**
+ * Function to destroy the hash table, if table was created with full mode
+ * destroing functions will be call for every key-value in the hash. If you
+ * don't want that, use hash_table_free instead wich only frees the hash. 
+ * @param table hash table to be destroy
+ */
+void hash_table_destroy(hash_table_t *);
+
+
+/**
+ * Function to destroy the hash table, keys and values must be destroy by
+ * user (if MODE use references). Otherwise use hash_table_destroy.
+ * @param table hash table to be destroy
+ */
+void hash_table_free(hash_table_t *);
+
 
 /**
  * macro to add a key - value pair to the hash table

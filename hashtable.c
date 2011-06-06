@@ -18,6 +18,8 @@ static void hash_table_element_delete_internal(hash_table_t *,
                                                hash_table_element_t *, bool);
 static int hash_table_remove_internal(hash_table_t *, void *, size_t, bool);
 
+static void hash_table_destroy_internal(hash_table_t *table, bool notify);
+
 static unsigned int hash_table_count_keys(hash_table_t * table)
 { /* For debbuging porpuse only, use hash_table_len instead. */
     int i = 0, count = 0;
@@ -159,11 +161,7 @@ hash_table_t * hash_table_new_full(hash_table_mode_t mode,
     return table;
 }
 
-/**
- * Function to delete the hash table
- * @param table hash table to be deleted
- */
-void hash_table_delete(hash_table_t * table)
+static void hash_table_destroy_internal(hash_table_t *table, bool notify)
 {
     size_t i=0;
     assert(table != NULL);
@@ -174,7 +172,7 @@ void hash_table_delete(hash_table_t * table)
         {
             hash_table_element_t * temp = table->store_house[i];
             table->store_house[i] = table->store_house[i]->next;
-            hash_table_element_delete(table, temp);
+            hash_table_element_delete_internal(table, temp, notify);
             table->key_count--;
         }
         if (table->key_count == 0) break;
@@ -182,6 +180,18 @@ void hash_table_delete(hash_table_t * table)
     free(table->store_house);
     free(table);
 }
+
+void hash_table_destroy(hash_table_t *table)
+{
+    hash_table_destroy_internal(table, true);
+}
+
+void hash_table_free(hash_table_t *table)
+{
+    hash_table_destroy_internal(table, false);
+}
+
+
 
 
 /**
