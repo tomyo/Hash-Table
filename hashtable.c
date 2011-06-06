@@ -22,14 +22,14 @@ static unsigned int hash_table_count_keys(hash_table_t * table)
 { /* For debbuging porpuse only, use hash_table_len instead. */
     int i = 0, count = 0;
     hash_table_element_t *iter = NULL;
-    
+
     for(i=0;i<table->key_num;i++)
     {
-        if (table->store_house[i])
+        if (table->store_house[i] != NULL)
         {
             count++;
             iter = table->store_house[i];
-            while(iter->next)
+            while(iter->next != NULL)
             {
                 count++;
                 iter = iter->next;
@@ -136,7 +136,7 @@ hash_table_t * hash_table_new_full(hash_table_mode_t mode,
                                    destroy_fun_t value_destroy_fun)
 {
     hash_table_t *table = NULL;
-    
+
     table = calloc(1, hash_table_s);
     if (!table)
     {
@@ -166,6 +166,7 @@ hash_table_t * hash_table_new_full(hash_table_mode_t mode,
 void hash_table_delete(hash_table_t * table)
 {
     size_t i=0;
+    assert(table != NULL);
     INFO("Deleating a hash table");
     for (;i<HASH_LEN;i++)
     {
@@ -193,13 +194,16 @@ void hash_table_delete(hash_table_t * table)
  * @returns 0 on sucess
  * @returns -1 when no memory
  */
-int hash_table_add(hash_table_t * table, void * key, 
+int hash_table_add(hash_table_t * table, void * key,
                    size_t key_len, void * value, size_t value_len)
 {
     size_t hash = 0;
     hash_table_element_t *element = NULL, *iter = NULL, *to_delete = NULL;
+    /* Preconditions */
+    assert(key != NULL);
+    assert(value != NULL);
     assert(hash_table_count_keys(table) == table->key_count);
-    
+
     if ((table->key_count / table->key_num) >= table->key_ratio)
     {
         LOG("Ratio(%d) reached the set limit %d\nExpanding hash_table", (table->key_count / table->key_num), table->key_ratio);
@@ -314,7 +318,7 @@ static int hash_table_remove_internal(hash_table_t * table,
     size_t hash = 0;
     hash_table_element_t *curr = NULL, *prev = NULL;
     assert(hash_table_count_keys(table) == table->key_count);
-    
+
     INFO("Deleting a key-value pair from the hash table");
     if (((table->key_num/ table->key_count) >= table->key_ratio) && notify)
     {
@@ -546,9 +550,9 @@ int hash_table_resize(hash_table_t *table, size_t len)
     unsigned int i = 0, old_store_len = 0, count = 0;
     hash_table_mode_t mode;
     hash_table_element_t ** old_store = table->store_house;
-    hash_table_element_t * etc = NULL, *next = NULL; 
+    hash_table_element_t * etc = NULL, *next = NULL;
                         /* etc = Element To Copy */
-    
+
     LOG("resizing hash table from %d to %d", table->key_num, len);
 
     table->store_house = calloc(len, sizeof(hash_table_element_t *));
@@ -563,7 +567,7 @@ int hash_table_resize(hash_table_t *table, size_t len)
     count = 0;
     table->mode = MODE_ALLREF; /* Fool new hash table to use previous values */
     table->key_num = len; /* New hash len */
-    
+
     table->key_count = 0;
     for (i=0; i<old_store_len; i++)
     {
@@ -576,7 +580,7 @@ int hash_table_resize(hash_table_t *table, size_t len)
             next = etc->next;
             free(etc);
             while(next)
-            {   
+            {
                 etc = next;
                 hash_table_add(table, etc->key, etc->key_len,
                                etc->value, etc->value_len);
@@ -586,9 +590,9 @@ int hash_table_resize(hash_table_t *table, size_t len)
             }
         }
     }
-    
+
     table->mode = mode;
- 
+
     free(old_store);
     return 0;
 }
@@ -599,35 +603,59 @@ void hash_table_iter_keys_reset(hash_table_t *self)
 {
     assert(self != NULL);
     self->iter_pos = 0;
+    if (self->key_count > 0)
+    {
+        while ((self->iter_pos <= self->key_num) &&
+           (self->store_house[self->iter_pos] == NULL))
+        {
+            self->iter_pos++;
+        }
+    }
+
 }
 
 bool hash_table_iter_keys_is_done(hash_table_t *self)
 {
     assert(self != NULL);
-    
-    return (self->iter_pos <= self->key_num);
+
+    return ((self->key_count == 0) || (self->iter_pos > self->key_num));
 }
 
 void *hash_table_iter_keys_next(hash_table_t *self)
 {
-    void *result = NULL;
-    
+    hash_table_element_t *current = NULL;
+    static uint16_t element_index = 0;
+    uint16_t i = 0;
+
     /* Preconditions */
     assert(self != NULL);
     assert(self->iter_pos <= self->key_num);
     assert(!hash_table_iter_keys_is_done(self));
-    
-    result = self->store_house[self->iter_pos];
-    self->iter_pos ++;
-    while ((self->iter_pos <= self->key_num) && 
-           (self->store_house[self->iter_pos] == NULL))
+
+    current = self->store_house[self->iter_pos];
+    for (i=0; i < element_index; i++)
     {
-        self->iter_pos++;
+        current = current->next;
     }
-    
-    assert(result != NULL);
-    
-    return result;
+    if (current->next == NULL)
+    {
+        /* avanzamos al proximo lugar del arreglo */
+        element_index = 0;
+        self->iter_pos++;
+        while ((self->iter_pos <= self->key_num) &&
+           (self->store_house[self->iter_pos] == NULL))
+        {
+            self->iter_pos++;
+        }
+    }
+    else
+    {
+        element_index++;
+    }
+
+    assert(current != NULL);
+
+    return current->key;
 }
 
 

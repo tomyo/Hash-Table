@@ -1,0 +1,4 @@
+*.o
+.depend
+tests/*.o
+tests/test.log

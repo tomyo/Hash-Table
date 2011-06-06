@@ -115,9 +115,9 @@ typedef struct hash_table
      * the ratio of key_count / key_num at which the hash table should be expanded
      */
     size_t key_ratio;
-    
+
     /* internal reference to iter pos in hash */
-    uint32_t iter_pos;
+    uint16_t iter_pos;
 
 } hash_table_t;
 #define hash_table_s sizeof(hash_table_t)
