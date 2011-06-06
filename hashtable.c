@@ -525,7 +525,7 @@ int hash_table_has_key(hash_table_t * table, void * key, size_t key_len)
  */
 uint16_t hash_table_do_hash(const void * key, size_t key_len, uint16_t max_key)
 {
-    uint16_t *ptr = (uint16_t *) key;
+    const uint16_t *ptr = (const uint16_t *) key;
     uint16_t hash = 0xbabe; /* WHY NOT */
     size_t i = 0;
     for(;i<(key_len/2);i++)
