@@ -7,8 +7,9 @@
 #ifndef _HASHTABLE_H
 #define _HASHTABLE_H
 
-#include<sys/types.h>
-#include<stdint.h>
+#include <sys/types.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #define HASH_LEN table->key_num
 #define HASH(x,y) hash_table_do_hash(x,y,HASH_LEN)
@@ -24,7 +25,9 @@ hash_table_lookup_extended(table, key, sizeof(*key), store_key, store_value)
 #define ht_insert(table, key, value) \
 hash_table_add(table, key, sizeof(*key), value, sizeof(*value))
 #define ht_destroy(table) hash_table_delete(table)
-
+#define ht_iter_keys_reset(self) hash_table_iter_keys_reset(self)
+#define ht_iter_keys_next(self) hash_table_iter_keys_next(self)
+#define ht_iter_keys_is_done(self) hash_table_iter_keys_is_done(self)
 
 typedef void (*destroy_fun_t) (void *);
 
@@ -112,10 +115,21 @@ typedef struct hash_table
      * the ratio of key_count / key_num at which the hash table should be expanded
      */
     size_t key_ratio;
+    
+    /* internal reference to iter pos in hash */
+    uint32_t iter_pos;
 
 } hash_table_t;
 #define hash_table_s sizeof(hash_table_t)
 
+/* Iter Operations */
+
+void hash_table_iter_keys_reset(hash_table_t *);
+
+/* Dont iter while adding new elements to the hash (it could resize)*/
+void *hash_table_iter_keys_next(hash_table_t *);
+
+bool hash_table_iter_keys_is_done(hash_table_t *);
 
 /* element operations */
 

@@ -593,7 +593,42 @@ int hash_table_resize(hash_table_t *table, size_t len)
     return 0;
 }
 
-/* New functions */
+/* Iter Functions */
+
+void hash_table_iter_keys_reset(hash_table_t *self)
+{
+    assert(self != NULL);
+    self->iter_pos = 0;
+}
+
+bool hash_table_iter_keys_is_done(hash_table_t *self)
+{
+    assert(self != NULL);
+    
+    return (self->iter_pos <= self->key_num);
+}
+
+void *hash_table_iter_keys_next(hash_table_t *self)
+{
+    void *result = NULL;
+    
+    /* Preconditions */
+    assert(self != NULL);
+    assert(self->iter_pos <= self->key_num);
+    assert(!hash_table_iter_keys_is_done(self));
+    
+    result = self->store_house[self->iter_pos];
+    self->iter_pos ++;
+    while ((self->iter_pos <= self->key_num) && 
+           (self->store_house[self->iter_pos] == NULL))
+    {
+        self->iter_pos++;
+    }
+    
+    assert(result != NULL);
+    
+    return result;
+}
 
 
 
