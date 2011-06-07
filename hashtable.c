@@ -76,7 +76,7 @@ static void hash_table_element_delete_internal(hash_table_t * table,
     {
         free(element->key);
         if (notify)
-        {
+        { /* using destroy functions given (if any) */
             if (table->value_destroy_fun)
             {
                 (table->value_destroy_fun)(element->value);
@@ -399,6 +399,17 @@ int hash_table_steal(hash_table_t * table, void * key, size_t key_len)
     return  hash_table_remove_internal(table, key, key_len, false);
 }
 
+int hash_table_replace(hash_table_t * table, void * key,
+                   size_t key_len, void * value, size_t value_len) {
+
+    assert(hash_table_has_key(table, key, key_len));
+
+    hash_table_steal(table, key, key_len);
+    hash_table_add(table, key, key_len, value, value_len);
+
+    return 0;
+}
+
 
 /**
  * Function to lookup a key in a particular table
@@ -488,7 +499,7 @@ void hash_table_lookup_extended(hash_table_t * table, const void * key, size_t k
 }
 
 /**
- * Function to look if the exists in the hash table
+ * Function to look if a key the exists in the hash table
  * @param key pointer to key to be looked for
  * @param key_len size of the key to be searched
  * @returns 0 when key is not found

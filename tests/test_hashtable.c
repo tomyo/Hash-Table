@@ -31,7 +31,27 @@ START_TEST(test_hash_table_new_destroy)
 }
 END_TEST
 
-/* Testeo de funcionalidad */
+/* Testeos de funcionalidad */
+
+START_TEST(test_hash_table_basic_consistency)
+{
+    hash_table_t *table = hash_table_new(MODE_ALLREF);
+    int k[] = {0,1,2,3,4,5,6,7};
+    int v = 42 , i = 0;
+    char test[5] = "hola";
+    for (i = 0; i < 8; i ++)
+    {
+        ht_insert(table, &k[i], &v);
+    }
+    fail_unless(ht_has_key(table, &k[1]));
+    fail_unless(*(int *)ht_lookup(table, &k[1]) == 42);
+    ht_replace(table, &k[1], test);
+    fail_unless(memcmp(ht_lookup(table, &k[1]), test, 5) == 0);
+    fail_unless(ht_has_key(table, &k[1]));
+    ht_destroy(table);
+}
+END_TEST
+
 START_TEST(test_hash_table_keys_iter_basic)
 {
     hash_table_t *table = hash_table_new(MODE_ALLREF);
@@ -85,6 +105,7 @@ START_TEST(test_hash_table_keys_iter_full)
 }
 END_TEST
 
+
 /* Armado de la test suite */
 Suite *hash_table_suite(void){
     Suite *s = suite_create("hash_table");
@@ -102,6 +123,7 @@ Suite *hash_table_suite(void){
     suite_add_tcase(s, tc_creation);
 
     /* Funcionalidad */
+    tcase_add_test(tc_functionality, test_hash_table_basic_consistency);
     tcase_add_test(tc_functionality, test_hash_table_keys_iter_basic);
     tcase_add_test(tc_functionality, test_hash_table_keys_iter_full);
     suite_add_tcase(s, tc_functionality);

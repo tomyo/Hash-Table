@@ -24,6 +24,9 @@ hash_table_lookup_extended(table, key, sizeof(*key), store_key, store_value)
 #define ht_remove(table, key) hash_table_remove(table, key, sizeof(*key))
 #define ht_insert(table, key, value) \
 hash_table_add(table, key, sizeof(*key), value, sizeof(*value))
+#define ht_replace(table, key, value) \
+hash_table_replace(table, key, sizeof(*key), value, sizeof(*value))
+#define ht_has_key(table, key) hash_table_has_key(table, key, sizeof(*key))
 #define ht_destroy(table) hash_table_destroy(table)
 #define ht_free(table) hash_table_free(table);
 #define ht_iter_keys_reset(self) hash_table_iter_keys_reset(self)
@@ -210,6 +213,14 @@ void hash_table_free(hash_table_t *);
  * @returns -1 when no memory
  */
 int hash_table_add(hash_table_t *, void *, size_t, void *, size_t);
+
+
+/* Replace an existing value of the hash without calling the destroy
+ * function given at hash_table_new_full. otherwise behaves just like add.
+ * Precondition: Key must have an existing entry in the table.
+ */
+int hash_table_replace(hash_table_t *, void *, size_t, void *, size_t);
+
 
 int hash_table_len(hash_table_t *);
 /**
