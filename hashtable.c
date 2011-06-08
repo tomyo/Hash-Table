@@ -25,7 +25,7 @@ int hash_table_len(hash_table_t *table)
     return table->key_count;
 }
 
-/**************************** Element Operations ******************************/
+/**************************** Element Operations *****************************/
 /**
  * Function to create a now hash_table element
  * @returns hash_table_element_t object when success
@@ -91,7 +91,7 @@ void hash_table_element_delete(hash_table_t *table, hash_table_element_t *elemen
 }
 
 
-/************************** Hash Table Operations *****************************/
+/************************** Hash Table Operations ****************************/
 
 /**
  * Fuction to create a new hash table
@@ -603,7 +603,7 @@ void hash_table_iter_keys_reset(hash_table_t *self)
     self->iter_pos = 0;
     if (self->key_count > 0)
     {
-        while ((self->iter_pos <= self->key_num) &&
+        while ((self->iter_pos < self->key_num) &&
            (self->store_house[self->iter_pos] == NULL))
         {
             self->iter_pos++;
@@ -616,7 +616,7 @@ bool hash_table_iter_keys_is_done(hash_table_t *self)
 {
     assert(self != NULL);
 
-    return ((self->key_count == 0) || (self->iter_pos > self->key_num));
+    return ((self->key_count == 0) || (self->iter_pos >= self->key_num));
 }
 
 void *hash_table_iter_keys_next(hash_table_t *self)
@@ -627,7 +627,6 @@ void *hash_table_iter_keys_next(hash_table_t *self)
 
     /* Preconditions */
     assert(self != NULL);
-    assert(self->iter_pos <= self->key_num);
     assert(!hash_table_iter_keys_is_done(self));
 
     current = self->store_house[self->iter_pos];
@@ -640,8 +639,9 @@ void *hash_table_iter_keys_next(hash_table_t *self)
         /* Moving to next place (containing something) in array */
         element_index = 0;
         self->iter_pos++;
-        while ((self->iter_pos <= self->key_num) &&
+        while ((self->iter_pos < self->key_num) &&
                (self->store_house[self->iter_pos] == NULL))
+
         {
             self->iter_pos++;
         }
@@ -650,12 +650,9 @@ void *hash_table_iter_keys_next(hash_table_t *self)
     {
         element_index++;
     }
-    
+
     assert(current != NULL);
     assert(current->key != NULL);
-    
+
     return current->key;
 }
-
-
-
