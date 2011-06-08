@@ -20,27 +20,6 @@ static int hash_table_remove_internal(hash_table_t *, void *, size_t, bool);
 
 static void hash_table_destroy_internal(hash_table_t *table, bool notify);
 
-static unsigned int hash_table_count_keys(hash_table_t * table)
-{ /* For debbuging porpuse only, use hash_table_len instead. */
-    int i = 0, count = 0;
-    hash_table_element_t *iter = NULL;
-
-    for(i=0;i<table->key_num;i++)
-    {
-        if (table->store_house[i] != NULL)
-        {
-            count++;
-            iter = table->store_house[i];
-            while(iter->next != NULL)
-            {
-                count++;
-                iter = iter->next;
-            }
-        }
-    }
-    return count;
-}
-
 int hash_table_len(hash_table_t *table)
 {
     return table->key_count;
@@ -212,7 +191,6 @@ int hash_table_add(hash_table_t * table, void * key,
     /* Preconditions */
     assert(key != NULL);
     assert(value != NULL);
-    assert(hash_table_count_keys(table) == table->key_count);
 
     if ((table->key_count / table->key_num) >= table->key_ratio)
     {
@@ -327,7 +305,6 @@ static int hash_table_remove_internal(hash_table_t * table,
 {
     size_t hash = 0;
     hash_table_element_t *curr = NULL, *prev = NULL;
-    assert(hash_table_count_keys(table) == table->key_count);
 
     INFO("Deleting a key-value pair from the hash table");
     if (((table->key_num/ table->key_count) >= table->key_ratio) && notify)
@@ -673,9 +650,10 @@ void *hash_table_iter_keys_next(hash_table_t *self)
     {
         element_index++;
     }
-
+    
     assert(current != NULL);
-
+    assert(current->key != NULL);
+    
     return current->key;
 }
 

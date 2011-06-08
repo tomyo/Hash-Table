@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS+= -Wall -Wextra -Wdeclaration-after-statement -Wbad-function-cast -Wcast-qual -Wstrict-prototypes -Wmissing-declarations -Wmissing-prototypes -Wno-unused-parameter -g -ansi  -Werror
+CFLAGS+= -Wall -Wextra -Wdeclaration-after-statement -Wbad-function-cast -Wcast-qual -Wstrict-prototypes -Wmissing-declarations -Wmissing-prototypes -Wno-unused-parameter -g -ansi -Werror
 SOURCES=$(shell echo *.c)
 OBJECTS= $(SOURCES:.c=.o)
 
