@@ -77,7 +77,7 @@ static void hash_table_element_delete_internal(hash_table_t * table,
             }
         }
     }
-    free(element);
+    free(element); element = NULL;
 }
 
 /**
@@ -637,11 +637,11 @@ void *hash_table_iter_keys_next(hash_table_t *self)
     }
     if (current->next == NULL)
     {
-        /* avanzamos al proximo lugar del arreglo */
+        /* Moving to next place (containing something) in array */
         element_index = 0;
         self->iter_pos++;
         while ((self->iter_pos <= self->key_num) &&
-           (self->store_house[self->iter_pos] == NULL))
+               (self->store_house[self->iter_pos] == NULL))
         {
             self->iter_pos++;
         }
