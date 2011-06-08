@@ -64,7 +64,7 @@ START_TEST(test_hash_table_keys_iter_basic)
         ht_insert(table, &k[i], &v);
     }
 
-    ht_iter_keys_reset(table);
+    ht_iter_keys_init(table);
     while (!ht_iter_keys_is_done(table))
     {
         current = ht_iter_keys_next(table);
@@ -89,7 +89,7 @@ START_TEST(test_hash_table_keys_iter_full)
         ht_insert(table, &k[i], &v);
     }
 
-    ht_iter_keys_reset(table);
+    ht_iter_keys_init(table);
     while (!ht_iter_keys_is_done(table))
     {
         current = *((int *)ht_iter_keys_next(table));

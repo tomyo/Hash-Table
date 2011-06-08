@@ -597,17 +597,20 @@ int hash_table_resize(hash_table_t *table, size_t len)
 
 /* Iter Functions */
 
-void hash_table_iter_keys_reset(hash_table_t *self)
+void hash_table_iter_keys_init(hash_table_t *self)
 {
     assert(self != NULL);
+    
     self->iter_pos = 0;
-    if (self->key_count > 0)
+    if (self->key_count == 0)
     {
-        while ((self->iter_pos < self->key_num) &&
-           (self->store_house[self->iter_pos] == NULL))
-        {
-            self->iter_pos++;
-        }
+        self->iter_pos = self->key_num; /* Nothing to iter */
+    }
+    
+    while ((self->iter_pos < self->key_num) &&
+       (self->store_house[self->iter_pos] == NULL))
+    {
+        self->iter_pos++;
     }
 
 }
@@ -616,15 +619,16 @@ bool hash_table_iter_keys_is_done(hash_table_t *self)
 {
     assert(self != NULL);
 
-    return ((self->key_count == 0) || (self->iter_pos >= self->key_num));
+    return (self->iter_pos >= self->key_num);
 }
 
 void *hash_table_iter_keys_next(hash_table_t *self)
 {
+    
     hash_table_element_t *current = NULL;
     static uint16_t element_index = 0;
     uint16_t i = 0;
-
+    
     /* Preconditions */
     assert(self != NULL);
     assert(!hash_table_iter_keys_is_done(self));

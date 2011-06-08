@@ -29,7 +29,7 @@ hash_table_replace(table, key, sizeof(*key), value, sizeof(*value))
 #define ht_has_key(table, key) hash_table_has_key(table, key, sizeof(*key))
 #define ht_destroy(table) hash_table_destroy(table)
 #define ht_free(table) hash_table_free(table);
-#define ht_iter_keys_reset(self) hash_table_iter_keys_reset(self)
+#define ht_iter_keys_init(self) hash_table_iter_keys_init(self)
 #define ht_iter_keys_next(self) hash_table_iter_keys_next(self)
 #define ht_iter_keys_is_done(self) hash_table_iter_keys_is_done(self)
 
@@ -128,7 +128,7 @@ typedef struct hash_table
 
 /* Iter Operations */
 
-void hash_table_iter_keys_reset(hash_table_t *);
+void hash_table_iter_keys_init(hash_table_t *);
 
 /* Dont iter while adding new elements to the hash (it could resize)*/
 void *hash_table_iter_keys_next(hash_table_t *);
