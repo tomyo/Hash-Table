@@ -60,7 +60,6 @@ static void hash_table_element_delete_internal(hash_table_t * table,
             {
                 (table->value_destroy_fun)(element->value);
             }
-            free(element->key);
         }
     }
     else if (table->mode == MODE_ALLREF)
